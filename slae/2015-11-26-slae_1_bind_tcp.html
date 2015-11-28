@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <title>ExEcc0dE - Assignment 1 – Shell bind tcp</title>
+		<link rel="stylesheet" id="truly-minimal-droid-serif-css" href="https://fonts.googleapis.com/css?family=Droid+Serif%3A400%2C700%2C400italic%2C700italic&amp;ver=4.4-alpha-34640" type="text/css" media="all">
+		<link rel="stylesheet" id="truly-minimal-droid-sans-css" href="https://fonts.googleapis.com/css?family=Droid+Sans%3A400%2C700&amp;ver=4.4-alpha-34640" type="text/css" media="all">
+        <link rel="stylesheet" type="text/css" href="../css/default.css" />
+    </head>
+    <body>
+        <div id="header">
+            <div id="logo">
+				<a href="../"><h1 class="site-title">ExEcc0dE</h1></a>
+				<h2 class="site-description">shell out: (vi. [Unix]) To spawn an interactive subshell from within a program</h2>
+            </div>
+            <div id="navigation">
+                <a href="../">Home</a>
+                <a href="../whatis.html">What is Shellcode?</a>
+                <a href="../about.html">About</a>
+                <a href="../archive.html">Archive</a>
+            </div>
+        </div>
+
+        <div id="content">
+            <h1>Assignment 1 – Shell bind tcp</h1>
+
+            <div class="info">
+    Posted on November 26, 2015
+    
+        by Reuben Sammut
+    
+</div>
+
+<blockquote>
+<p>This blog post has been created for completing the requirements of the SecurityTube Linux Assembly Expert certification: <a href="http://securitytube-training.com/online-courses/securitytube-linux-assembly-expert/" class="uri">http://securitytube-training.com/online-courses/securitytube-linux-assembly-expert/</a></p>
+<p>Student ID: SLAE-510</p>
+</blockquote>
+<h3 id="requirements">Requirements</h3>
+<p>For the first assignment it is required to create a shellcode which binds to a port, and executes a shell on the incoming connection. The port should also be easily configured.</p>
+<h4 id="extra-challenges">Extra challenges</h4>
+<p>As an extra challenge to myself, I decided to make the shellcode <strong>listen</strong> for an incoming connection, <strong>fork</strong> a child which <strong>spawns a shell</strong>, make the parent <strong>wait</strong> for the child process to finish. After the child process finishes, the should start listening for another connection. This should continue running until the parent process is killed.</p>
+<h3 id="implementation">Implementation</h3>
+<p>So let’s start with a run through of what system calls are required for this challenge.</p>
+<ul>
+<li><strong>socket</strong> – creates an endpoint for communication</li>
+<li><strong>bind</strong> – binds the address and port to the socket</li>
+<li><strong>listen</strong> – listens for connection on the socket</li>
+<li><strong>accept</strong> – accepts a connection on the socket</li>
+<li><strong>fork</strong> – create a child process by copying the parent</li>
+<li><strong>dup2</strong> – duplicate file descriptors, used to redirect streams</li>
+<li><strong>execve</strong> – execute a program, in this case a shell</li>
+<li><strong>close</strong> – close file descriptor, used to close new connection’s socket from the parent</li>
+<li><strong>waitpid</strong> – wait for the child process to exit</li>
+</ul>
+<p>The socket related calls are multiplexed through one system call called <strong>socketcall</strong>. This means that socket, bind, listen and accept will have the same system call number (<em>102</em>). I found <a href="http://jkukunas.blogspot.com/2010/05/x86-linux-networking-system-calls.html">this blog post</a> very helpful in understanding how socketcall works.</p>
+<p>Socketcall system calls require two parameters: the first one is the socket call number and the second one is an array of parameters required for the particular socket call number. The first parameter is defined in <code>/usr/include/linux/net.h</code></p>
+<div class="figure">
+<p><a href="../images/slae_01-01_defines_socketcall.png"> <img src="../images/slae_01-01_defines_socketcall.png" /> </a> #defines of first parameter for socketcall</p>
+</div>
+<p>The second parameter is an array of values for the particular socketcall. For example for the socket call, we would need to create an array of 3, with the domain, type and protocol.</p>
+<p>So let’s look at one particular instance of how to use this. In order to call the socket system call(to create the endpoint), we need to set</p>
+<ul>
+<li>$eax = 102(socketcall syscall)</li>
+<li>$ebx = 1(socket)</li>
+<li>$ecx = { .domain = 2(AF_INET), .type = 1(SOCK_STREAM), .protocol = 0 }</li>
+</ul>
+<p>In create the array above, we can push the 3 values(in reverse order) on the stack and take the address of the stack pointer.</p>
+<div class="figure">
+<p><a href="../images/slae_01-02_socketcall_setup.png"> <img src="../images/slae_01-02_socketcall_setup.png" /> </a> Setting up the socketcall system call for socket</p>
+</div>
+<p>After the above procedure was done for the socket, bind, listen and accept calls was done, I added the fork. The fork system call creates a child process using a copy of the parent process. This means that both the parent and child process will have the same process layout and cpu state. However the return code of the fork system call differs from the parent to the child process. The parent process gets the child pid in the $eax while the child process gets 0 in $eax. This allows us to chose what to do next if we are the parent or the child process.</p>
+<p>In the parent process, the accepted client connection(which is going to be dealt with by the child) is closed. Then the parent waits on the child process to finish by using the waitpid system call. This allows for a continual access to the system. However I decided to limit it to serving one connection at a time. That is why I made the parent process wait for the child process to exit.</p>
+<p>For the child process, in order for the connected client to be able to control the shell we are about to launch, we need to redirect the standard input, output and error streams to the client socket. These 3 streams are available as file descriptors 0, 1 and 2 respectively. This can be done by using the dup2 system call on these 3 file descriptors. What this does is, it closes the 3 file descriptors and uses the client socket instead. After the dup2, all we need to do is call execve on <code>/bin/sh</code>.</p>
+<h3 id="testing">Testing</h3>
+<p>After the implementation of this assignment let’s have a look at the shellcode running. Let’s start analysing the annotations in the below image.</p>
+<div class="figure">
+<p><a href="../images/slae_01-03_run_shellcode.png"> <img src="../images/slae_01-03_run_shellcode.png" /> </a> Running and connecting to bindtcp shellcode</p>
+</div>
+<p>The first annotation (1) shows the established connection to the running shellcode which is listening on port 1111. Just for identifying inputs from the outputs I spawned a tty shell. This can be achieved by using something like <code>python -c 'import pty; pty.spawn(&quot;/bin/sh&quot;)'</code> as shown in the second annotation(2). The third note (3) is for checking the id of the user running the process. Notes (4) and (5) show the process listing. There is a lot we can see here. The first thing we can see is the connection from the nc command. Secondly we can see the bindtcp shellcode running and the <em>//bin/sh</em> shell running as a child of the bindtcp. We can also see the extra tty shell I spawned using the python snippet described above. The sixth note(6) shows the connections on port 1111. The bindtcp process is the one <strong>LISTENING</strong> on port 1111. Then we can see the nc client connected and the /bin/sh child of the bindtcp connection endpoints. Finally after a full disconnection from the client I wanted to check whether the bindtcp process was still running. So I check the connections using the netstat command. As can be seen in the last note (7), the bindtcp is still listening on port 1111 and we can see the <strong>TIMEWAIT</strong> of the previous connection still there. These show that the shellcode is working as expected.</p>
+<p>As an extra incentive to learn how to use libemu, I tried analysing the code I wrote using libemu. One of the things I noticed is that libemu doesn’t handle fork very well as after the fork the graph continues as if it is all the same process. This can also be seen after the execve of the child process. The graph links to the code that is run by the parent as if the child continues to run this after it exits from execve.</p>
+<div class="figure">
+<p><a href="//github.com/reubensammut/SLAE32/raw/master/Assignments/01%20-%20Shell%20Bind%20Tcp/bindtcp.png"> <img src="//github.com/reubensammut/SLAE32/raw/master/Assignments/01%20-%20Shell%20Bind%20Tcp/bindtcp.png" /> </a> libemu graph of the bindtcp shellcode</p>
+</div>
+<h3 id="port-customisation">Port customisation</h3>
+<p>To fulfil the last requirement, that is to make the port number easily customisable, I created a bash script <code>bindtcp_config.sh</code> which accepts the port number as the first argument. It then outputs the shellcode to the screen. The only limitation with this script is that it does not check whether the given port would result in the shellcode containing null bytes. As such the user would be required to manually check the output of the script for null bytes. Should the user wish to use this particular port, an encoder which gets rid of the null character should be used.</p>
+<p>This script uses a file(also available on GitHub) I created using one of my scripts. (If you want to read more about the scripts I used to help me in writing these assignments, read <a href="../slae/2015-11-26-slae_util_scripts.html">this blog post</a>.) The file is <code>bindtcp_conf.shell</code>. This contains the shellcode with the two bytes for the port number changed to PORTPORT. The <code>bindtcp_config.sh</code> script replaces the PORTPORT with the correct format of the port number provided.</p>
+<div class="figure">
+<p><a href="../images/slae_01-04_bindtcp_generate.png"> <img src="../images/slae_01-04_bindtcp_generate.png" /> </a> using the bindtcp_config.sh script to generate shellcode for different ports</p>
+</div>
+<p>The full code for this assignment, shell script and extra files needed can be found on <a href="//github.com/reubensammut/SLAE32/tree/master/Assignments/01%20-%20Shell%20Bind%20Tcp">my GitHub account</a>.</p>
+
+<div id="disqus_thread"></div>
+<script>
+/**
+* RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+* LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+*/
+
+var disqus_config = function () {
+this.page.url = 'http://execc0de.test.com'; // Replace PAGE_URL with your page's canonical URL variable
+this.page.identifier = 'http://execc0de.test.com'; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+};
+
+(function() { // DON'T EDIT BELOW THIS LINE
+var d = document, s = d.createElement('script');
+
+s.src = '//execc0de.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+        </div>
+        <div id="footer">
+            Site proudly generated by
+            <a href="http://jaspervdj.be/hakyll">Hakyll</a>
+        </div>
+    </body>
+</html>
