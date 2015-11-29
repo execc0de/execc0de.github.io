@@ -60,7 +60,7 @@
 <div class="figure">
 <p><a href="../images/slae_02-02_connect_failed.png"> <img src="../images/slae_02-02_connect_failed.png" /> </a> Error message when connection failed to be established</p>
 </div>
-<p>Above we can the shellcode being executed while the server to connect back to was not listening on the specified port. An error message saying “[!] Connection failed” is displayed to the screen. We can also see the return code set to “1”, to indicate the error.</p>
+<p>Above we can see the shellcode being executed while the server with the specified IP and port was not listening on the specified port. An error message saying “[!] Connection failed” is displayed to the screen. We can also see the return code set to “1”, to indicate the error.</p>
 <p>Now we’ll look at the case when the connection succeeds.</p>
 <div class="figure">
 <p><a href="../images/slae_02-03_run_shellcode.png"> <img src="../images/slae_02-03_run_shellcode.png" /> </a> A connected reverse tcp shell</p>
@@ -69,7 +69,7 @@
 <p>Similarly to what I had done in the previous assignment, I showed how to create an interactive shell using python. In this case I used the <code>sh</code> command itself to launch an interactive shell. To do this, as can be seen in note (2), I used the <code>/bin/sh -i</code> command which spawns an interactive shell. Right after it is executed, as shell is created with the <code>$</code> prompt showing. I used <code>id</code> to check whether everything is working correctly.</p>
 <p>In note (3) we can see the shellcode running as <code>//bin/sh</code> with the interactive shell I created as its subprocess. We can also see the nc command running and listening on port 1111.</p>
 <p>Finally we can check the connections. In note (4) we see that <code>nc</code> is listening on port 1111 and our shell code (marked as <code>sh</code>) is connected to our listening <code>nc</code> server.</p>
-<p>Using libemu, I generated another graph to see, how it handles the shellcode I created. This time, the flow of the code was much simpler than the one in assignment 1 as there was no fork in this case. However, there was a jump when the connection fails. The same problem occured with libemu showing the code for writing to the screen as a continution after the execve. The graph can be seen below</p>
+<p>Using libemu, I generated another graph to see how it handles the shellcode I created. This time, the flow of the code was much simpler than the one in assignment 1 as there was no fork in this case. However, there was a jump when the connection fails. The same problem occured with libemu showing the code for writing to the screen as a continution after the execve. The graph can be seen below</p>
 <div class="figure">
 <p><a href="//github.com/reubensammut/SLAE32/raw/master/Assignments/02%20-%20Shell%20Reverse%20Tcp/reversetcp.png"> <img src="//github.com/reubensammut/SLAE32/raw/master/Assignments/02%20-%20Shell%20Reverse%20Tcp/reversetcp.png"> </a> libemu graph of the reverse tcp shellcode</p>
 </div>
