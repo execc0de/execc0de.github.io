@@ -1,0 +1,24 @@
+baseURL = 'https://execc0de.github.io/'
+languageCode = 'en-us'
+theme = 'coming-soon'
+
+[params]
+    title = 'ExEcc0dE - coming soon'
+    release = "October 21, 2024"
+    message = "COMING SOON! - CHECK BACK AFTER THE WEEKEND"
+
+socialIconsLeft = [
+    {name = "github", url = "https://github.com/SpiralBL0CK"},
+    {name = "linkedin", url = "https://www.linkedin.com/in/vatafu-vladut-5886791a8/"},
+    {name = "twitter", url = "https://x.com/f00fc7c800"},
+]
+
+socialIconsRight = [
+    {name = "twitter", url = "https://x.com/reubensammut"},
+    {name = "linkedin", url = "https://www.linkedin.com/in/reubensammut/"},
+    {name = "github", url = "https://github.com/reubensammut"}
+]
+
+[params.twitter]
+	enable = false 
+	username = "reubensammut"
