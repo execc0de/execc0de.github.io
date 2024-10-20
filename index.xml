@@ -27,7 +27,7 @@ Let&amp;rsquo;s start by looking at integers. Consider the following snippet:&lt
 &lt;/tr>
 &lt;/tbody>
 &lt;/table>
-&lt;p>Floating point numbers are also encided with the type information. In ChakraCore, this is done by XORing them with 0xFFFC000000000000.&lt;/p>
+&lt;p>Floating point numbers are also encoded with the type information. In ChakraCore, this is done by XORing them with 0xFFFC000000000000.&lt;/p>
 &lt;h3 id="array-representation">Array representation
 &lt;/h3>&lt;p>Next we will be addressing yet another traditional JavaScript object which is the array. Let&amp;rsquo;s investigate how they are represented in memory. Take the following code snippet as an example:&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">fake_object&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#66d9ef">new&lt;/span> Array(&lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>, &lt;span style="color:#ae81ff">0&lt;/span>);
@@ -106,7 +106,7 @@ head --> left
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>In the &lt;code>main&lt;/code> function, the &lt;code>opt&lt;/code> function gets called 10000 times with the same arguments. This will trigger JIT compilation and since we are passing the same arguments to the function, during optimisation, assumptions are made on the type of the function arguments. In the loop where we&amp;rsquo;re forcing the &lt;code>opt&lt;/code> function to be JITed, the arguments we supply are the array &lt;code>arr&lt;/code>, along with an empty object &lt;code>{}&lt;/code>.&lt;/p>
 &lt;p>Inside the &lt;code>opt&lt;/code> function, a JSObject is created where the &lt;code>__proto__&lt;/code> property is set to the second argument. Due to JIT assumptions made during JITing of the &lt;code>opt&lt;/code> function, this will be expected to be a JSObject.&lt;/p>
 &lt;p>Following this JIT compilation and execution, the loop is completed and execution returns to the interpreter. A final call is made to the &lt;code>opt&lt;/code> function, which violates the assumption of the argument types by specifying the array &lt;code>arr&lt;/code> as both first and second parameter. It is not directly clear what effect this will have, but we can observe it by executing the JavaScript code while attached to a debugger.&lt;/p>
-&lt;p>To execute the above presented JavaScript code, we&amp;rsquo;ll save the above code in a &lt;code>.js&lt;/code> file, open a commmand prompt and start WindDbg Preview while debugging ChakraCore. To do this we execute the following command&lt;/p>
+&lt;p>To execute the above presented JavaScript code, we&amp;rsquo;ll save the above code in a &lt;code>.js&lt;/code> file, open a command prompt and start WinDbg Preview while debugging ChakraCore. To do this we execute the following command&lt;/p>
 &lt;pre tabindex="0">&lt;code>windbgx ch.exe snipper.js
 &lt;/code>&lt;/pre>&lt;p>Starting the debugging session, a default breakpoint is set at the entry point. When we let execution continue, we observe an access violation as can be seen below:&lt;/p>
 &lt;p>&lt;img src="https://execc0de.github.io/posts/cve-2018-3408/applicationcrash.png"
@@ -119,7 +119,7 @@ class="gallery-image"
 data-flex-grow="489"
 data-flex-basis="1175px"
 >&lt;/p>
-&lt;p>The access violation is due to invalid memory ac cess. Notice that the hexadecimal representation of the float 2.3023e-320 is 0x1234. This value was specifically chosen, since its hexadecimal representation can be very easily detected while debugging. In the above screenshot, we see that the violation is at the address 0x123c which happens to be 0x1234 + 8.&lt;/p>
+&lt;p>The access violation is due to invalid memory access. Notice that the hexadecimal representation of the float 2.3023e-320 is 0x1234. This value was specifically chosen, since its hexadecimal representation can be very easily detected while debugging. In the above screenshot, we see that the violation is at the address 0x123c which happens to be 0x1234 + 8.&lt;/p>
 &lt;h2 id="patch-analysis">Patch Analysis
 &lt;/h2>&lt;p>One helpful step before jumping into the exploitation of a patched vulnerability, is to understand what changes have been made to fix said vulnerability. We&amp;rsquo;ll start by looking at the GitHub advisory for this CVE.&lt;/p>
 &lt;p>&lt;img src="https://execc0de.github.io/posts/cve-2018-3408/cvegithubrepo.png"
@@ -278,7 +278,7 @@ class="gallery-image"
 data-flex-grow="122"
 data-flex-basis="294px"
 >&lt;/p>
-&lt;p>From the above diagram we can see that the buffer address points to a remote adderss. Now image what would happen if we were be able to control that buffer address with a pointer we desire. Starting from a valid fake &lt;code>DataView&lt;/code> object, we would set the buffer address to point to an address we desire. By utilising native JavaScript APIs, we are able to read/write from any address we would like and corrupt any structure member from the memory freely.&lt;/p>
+&lt;p>From the above diagram we can see that the buffer address points to a remote adderss. Now imagine what would happen if we were be able to control that buffer address with a pointer we desire. Starting from a valid fake &lt;code>DataView&lt;/code> object, we would set the buffer address to point to an address we desire. By utilising native JavaScript APIs, we are able to read/write from any address we would like and corrupt any structure member from the memory freely.&lt;/p>
 &lt;p>Now the most important elements in a &lt;code>DataView&lt;/code> object are the&lt;/p>
 &lt;ul>
 &lt;li>&lt;code>type&lt;/code> so that JavaScript can identify that it is an &lt;code>DataView&lt;/code>,&lt;/li>
@@ -346,7 +346,7 @@ data-flex-basis="528px"
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">var&lt;/span> &lt;span style="color:#a6e22e">chakra_leak&lt;/span> &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#a6e22e">read64&lt;/span>(&lt;span style="color:#a6e22e">array_addr&lt;/span>);
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">print&lt;/span>(&lt;span style="color:#e6db74">&amp;#34;[+] Leaked address within chakra: 0x&amp;#34;&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#a6e22e">chakra_leak&lt;/span>.&lt;span style="color:#a6e22e">toString&lt;/span>(&lt;span style="color:#ae81ff">16&lt;/span>));
 &lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Once the above code is executed, the first entry in the vtable is returned. In programming languages such as C++, the language in which the ChakraCore JavaScript engine is written in, the vtable contains addresses to an object&amp;rsquo;s methods. This is especially useful when inheritance is used, as a subclass might override some of its parent class methods. The instantiated object would need to have a reference to the appropriate method implementations when the object methods are invoked.&lt;/p>
-&lt;p>From the above brief interlude on vtables, we know that the vtable contains a list of methods typically present in the binary, thus reading from the vtable we can leak an address within ChakraCore.&lt;/p>
+&lt;p>From the above brief interlude on vtables, we know that the vtable contains a list of methods typically present in the binary, thus, when reading from the vtable, we can leak an address within ChakraCore.&lt;/p>
 &lt;p>&lt;img src="https://execc0de.github.io/posts/cve-2018-3408/chakracoreleak.png"
 width="863"
 height="312"
@@ -397,7 +397,7 @@ data-flex-basis="663px"
 &lt;li>a branch instruction&lt;/li>
 &lt;li>a return instruction&lt;/li>
 &lt;/ul>
-&lt;p>CFG protects against tampering in an indirect call. This is also known as forward edge, and CFG performs forward flow control. Once a function is finished its execution, it hits a return instruction (called &lt;code>ret&lt;/code>). The purpose of this instruction is to bring execution back to the callee. This is known as backwards edge and CFG does not offer protection on it.&lt;/p>
+&lt;p>CFG protects against tampering in an indirect call. This is also known as forward edge, and CFG performs forward flow control. Once a function has finished its execution, it hits a return instruction (called &lt;code>ret&lt;/code>). The purpose of this instruction is to bring execution back to the callee. This is known as backwards edge and CFG does not offer protection on it.&lt;/p>
 &lt;p>Having chosen our method of exploitation, and knowing how to bypass CFG, we can leak the address of the stack for the current thread, find a suitable return address, and overwrite it. This would give us control of instruction pointer without being stopped by CFG.&lt;/p>
 &lt;p>Luckily for us, in ChakraCore, there is a variable called &lt;code>globalListFirst&lt;/code>. The variable contains the address of a heap buffer, within which we&amp;rsquo;ll find a stack address for the current thread.&lt;/p>
 &lt;p>&lt;img src="https://execc0de.github.io/posts/cve-2018-3408/globalListFirst.png"
@@ -410,7 +410,7 @@ class="gallery-image"
 data-flex-grow="991"
 data-flex-basis="2379px"
 >&lt;/p>
-&lt;p>From the heap buffer located at &lt;code>globalListFirst&lt;/code>, we find that at offset 0x498 is an addreess that is within the range specified StackBase and StackLimit in the current thread. We can confirm it is a stack address for the current thread.&lt;/p>
+&lt;p>From the heap buffer located at &lt;code>globalListFirst&lt;/code>, we find that, at offset 0x498 is an addreess that is within the range specified by StackBase and StackLimit in the current thread. We can confirm it is a stack address for the current thread.&lt;/p>
 &lt;p>&lt;img src="https://execc0de.github.io/posts/cve-2018-3408/stackaddress.png"
 width="542"
 height="151"
@@ -506,7 +506,7 @@ data-flex-basis="1401px"
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>{
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#a6e22e">write32&lt;/span>(&lt;span style="color:#a6e22e">exeLoc&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#a6e22e">i&lt;/span> &lt;span style="color:#f92672">*&lt;/span> &lt;span style="color:#ae81ff">4&lt;/span>, &lt;span style="color:#a6e22e">cmdExe&lt;/span>[&lt;span style="color:#a6e22e">i&lt;/span>]);
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Finally we&amp;rsquo;ll come to the actual ROP chain. Following the x64 calling convention, the two parameters for the &lt;code>WinExec&lt;/code> function should be passed into the RCX and RDX registers. For this we require 2 ROP gadgets with which we can set the RCX and RDX registers. These setup our parameters which will be used in the execution of &lt;code>WinExec&lt;/code>. Once the parameters are filled with the correct data, we pass execution directly to &lt;code>WinExec&lt;/code>. The full ROP chain can be found in the code snippet below.&lt;/p>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Finally we&amp;rsquo;ll come to the actual ROP chain. Following the x64 Windows calling convention, the two parameters for the &lt;code>WinExec&lt;/code> function should be passed into the RCX and RDX registers. For this we require 2 ROP gadgets with which we can set the RCX and RDX registers. These setup our parameters which will be used in the execution of &lt;code>WinExec&lt;/code>. Once the parameters are filled with the correct data, we pass execution directly to &lt;code>WinExec&lt;/code>. The full ROP chain can be found in the code snippet below.&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-javascript" data-lang="javascript">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">//0x180196522: pop rdx ; ret ; (1 found)
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e">&lt;/span>&lt;span style="color:#a6e22e">write64&lt;/span>(&lt;span style="color:#a6e22e">rop&lt;/span>, &lt;span style="color:#a6e22e">chakracore_base&lt;/span> &lt;span style="color:#f92672">+&lt;/span> &lt;span style="color:#ae81ff">0x196522&lt;/span>);
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#a6e22e">write64&lt;/span>(&lt;span style="color:#a6e22e">rop&lt;/span>&lt;span style="color:#f92672">+&lt;/span>&lt;span style="color:#ae81ff">0x08&lt;/span>, &lt;span style="color:#ae81ff">0x1&lt;/span>);
@@ -535,5 +535,5 @@ Your browser doesn't support HTML5 video. Here is a
 &lt;/div>
 &lt;h2 id="possible-enhancements">Possible enhancements
 &lt;/h2>&lt;p>The exploit built here serves only as a proof of concept, and can obviously be improved in several ways.&lt;/p>
-&lt;p>Although the code runs in ChakraCore, where we&amp;rsquo;re using the standalone &lt;code>ch.exe&lt;/code>, the ROP chain at the end does not handle continuation of the executable to run. Since ChakraCore happens to be JavaScript engine for the old Microsoft Edge, a proper exploit should handle proper restoration of the stack frame&lt;/p>
+&lt;p>Although the code runs in ChakraCore, where we&amp;rsquo;re using the standalone &lt;code>ch.exe&lt;/code>, the ROP chain at the end does not handle continuation of the executable to run. Since ChakraCore happens to be JavaScript engine for the old Microsoft Edge, a proper exploit should handle proper restoration of the stack frame.&lt;/p>
 &lt;p>The CFG bypass used here exploits the fact that CFG lacks backward flow control. Technologies such as Intel&amp;rsquo;s Control-flow Enforcement Technologies (CET) offer both forward and backward flow control. Intel CET handles backward flow control through the concept of a Shadow Stack. With Shadow Stacks, two stacks are used per thread, with the first stack being used as a normal stack and the second stack containing only return addresses. When returning from a function, if the address on the normal stack does not match the address in the shadow stack, meaning it has been modified, the application is terminated. Such technologies would force us to use other CFG bypasses such as data only attacks&lt;/p></description></item><item><title>Search</title><link>https://execc0de.github.io/search/</link><pubDate>Sun, 13 Oct 2024 22:50:56 +0200</pubDate><guid>https://execc0de.github.io/search/</guid><description/></item></channel></rss>
